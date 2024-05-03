@@ -13,6 +13,7 @@ The function is designed to synchronize products from CatalogIQ to Shopify using
 It is offered as an example. Your actual implementation will vary. There are no warranties or guarantees provided with this code. It is provided as an example to help you get started with your own implementation.
 The function will NOT check if the item already exists. It will create a new item each time it is called. You will need to add that logic if you want to check for existing items.
 The function adds CatalogIQ product attributes as unstructured metafields in Shopify. You can modify this to suit your needs.
+Shopify has Python Clients available that you can use to interact with the API. This example uses the requests library.
 """
 
 publisher = pubsub_v1.PublisherClient()
@@ -61,6 +62,8 @@ def map_catalogiq_to_shopify(ciq_product):
         shopify_variants.append({
             "sku": variant['default_code'],
             "optionValues": option_values
+            # If you want the correct images for each variant, you will need to add the images in a seperate step, we reccomend adding the main image to the product and then adding the additional images to the product with a dedicated Cloud Function. 
+            # There is no direct way to add images to variants using preductSet mutation.
         })
 
     # Prepare productOptions structure with values
@@ -214,19 +217,21 @@ def sync_products_to_shopify(shopify_graphql_url, shopify_headers, ciq_product):
 # Function to synchronize products from CatalogIQ to BigCommerce. 
 # If the product name and/or SKU is already present it will skip the product.
 def sync_products(offset):
+    # We are looping through the catalog in chunks of 1 product at a time because there can be a large number of variants per product. We want to avoid running out of memory or timeouts of the Google Cloud Function.
     limit = 1
 
     # Retrieve API keys and endpoints from environment variables or add them here to debug/develop
     catalogiq_api_key = os.getenv('CATALOGIQ_API_KEY')
     sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
-    shopify_access_token = os.getenv('SHOPIFY_ACCESS_TOKEN') 
+    shopify_access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
+    shopify_store_code = os.getenv('SHOPIFY_ACCESS_TOKEN')
 
+    # Set the API endpoints for CatalogIQ and Shopify
     catalogiq_endpoint = "https://catalogiq.app/api/v1/products"
-
+    shopify_graphql_url = f"https://{shopify_store_code}.myshopify.com/admin/api/2024-04/graphql.json"
 
     # Set your authorization headers for each API
-    headers_catalogiq = {'Catalogiq-Api-Key': catalogiq_api_key}
-    shopify_graphql_url = 'https://quickstart-0d328702.myshopify.com/admin/api/2024-04/graphql.json'
+    headers_catalogiq = {'Catalogiq-Api-Key': catalogiq_api_key}    
     shopify_headers = {
         'Content-Type': 'application/json',
         'X-Shopify-Access-Token':  access_token
@@ -250,16 +255,19 @@ def sync_products(offset):
     # Map the API properties and Post products to BigCommerce
     for product in products:              
         response_shopify = sync_products_to_shopify(shopify_graphql_url, shopify_headers, product)    
+        #You can handle the response status here.
         #if response_shopify.data.productOperation.status not in ["COMPLETE"]:
-        if response_shopify:
-            print(f"Shopify Response: {response_shopify}")         
+        #if response_shopify:
+            #print(f"Shopify Response: {response_shopify}")         
 
     # Update the offset in Pub/Sub to trigger the next invocation
-    publish_offset(offset + 1)  # Update the offset for the next invocation
+    publish_offset(offset + 1) 
     return "Product Complete!"
 
 
-# Add or update the sanitation of the input values from the dimensions above.
+# Add or update the sanitation of the input values from the dimensions attributes. 
+# @Input:String|Integer - input_value: The value to be cleaned and converted to a float, can be a string or an integer
+# @Output:Float - Returns the cleaned and converted float value or 0.00
 def clean_and_convert_to_float(input_value):
     if isinstance(input_value, int):
         return float(input_value)
@@ -272,6 +280,8 @@ def clean_and_convert_to_float(input_value):
 
 # Callback at the end of the synchronization process to send an email notification
 # You can change this to handle whatever you would like to do upon completion.
+# @Input:String - sendgrid_api_key: The SendGrid API key to send the email
+# @Output:None
 def send_completion_email(sendgrid_api_key):
     
     message = Mail(
@@ -286,3 +296,5 @@ def send_completion_email(sendgrid_api_key):
         print(f"Email sent! Status code: {response.status_code}")
     except Exception as e:
         print(f"An error sending mail occurred: {e}")
+    
+    return None
