@@ -10,6 +10,7 @@ For more information and the source code, visit our repository: [shopify-gdf-imp
 - Enabled Google Cloud services: Cloud Functions, Pub/Sub, and Cloud Run
 - Basic knowledge of Python
 - Shopify Store Account with API Key access
+- CatalogIQ API Key or [Demo Key](https://catalogiq.app/lighting/api-docs)
 
 ## Architecture Overview
 
@@ -33,7 +34,9 @@ You can modify this function to process specific records by `template_id`, makin
 
 # Getting Started
 
-## [Video ](https://catalogiq.app/slides/connector-examples-19)
+
+### [Video Tutorial](https://catalogiq.app/slides/connector-examples-19)
+
 View the connector example videos on [catalogiq.app courses](https://catalogiq.app/slides/connector-examples-19)
 
 ### Setting up Pub/Sub
@@ -49,8 +52,8 @@ View the connector example videos on [catalogiq.app courses](https://catalogiq.a
 
 1. Set the function name and runtime to Python 3.12.
 2. Configure the number of messages to process at a time to `1`.
-3. Visit the [project repository](https://github.com/CatalogIQ/shopify-gcf-importer).
-4. In the Cloud Function Inline Editor, copy the contents of `Requirements.txt` and `Main.py` from the repository.5. 
+3. Visit this [project repository](https://github.com/CatalogIQ/shopify-gcf-importer).
+4. In the Cloud Function Inline Editor, copy the contents of `Requirements.txt` and `Main.py` from the repository. 
 6. Set the `entry_point` to `process_product`.
 7. Set the following environment variables:
     - `CATALOGIQ_API_KEY`: Your CatalogIQ API key.
