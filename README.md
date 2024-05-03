@@ -30,10 +30,11 @@ This setup is flexible and can be adapted to connect with other APIs like [BigCo
 
 You can modify this function to process specific records by `template_id`, making it possible to trigger imports directly from a Google Sheet containing product IDs and details via an HTTP function.
 
-## Getting Started
+
+# Getting Started
 
 ## [Video ](https://catalogiq.app/slides/connector-examples-19)
-View the connector example videos on catalogiq.app courses
+View the connector example videos on [catalogiq.app courses](https://catalogiq.app/slides/connector-examples-19)
 
 ### Setting up Pub/Sub
 
