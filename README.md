@@ -75,7 +75,5 @@ View the connector example videos on [catalogiq.app courses](https://catalogiq.a
 
 Contributions to this project are welcome! Feel free to fork the repository, make improvements, and submit pull requests.
 
-## TODO
-1. Verify message are not received more than once and make sure duplicates are not processed.
 
 
