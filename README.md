@@ -22,6 +22,7 @@ The process is triggered by a Pub/Sub message containing an "offset" value, whic
 - It is offered as an example. Your actual implementation will vary. There are no warranties or guarantees provided with this code. It is provided as an example to help you get started with your own implementation.
 - The function will NOT check if the item already exists. It will create a new item each time it is called. You will need to add that logic if you want to check for existing items.
 - The function adds CatalogIQ product attributes as unstructured metafields in Shopify. You can modify this to suit your needs.
+- There is no dimensional properties populated. But you can access dimensional properties in the attributes array, refer to the products_attributes endpoint for a reference 
 - Shopify has Python Clients available that you can use to interact with the API. This example uses the requests library.
 - You may need to throttle your API usage depending on your account and the number of products/variants you are syncing.
 
