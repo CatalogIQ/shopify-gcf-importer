@@ -10,19 +10,15 @@ from sendgrid.helpers.mail import Mail
 from google.cloud import pubsub_v1
 
 """
-Shopify Docs: https://shopify.dev/docs/api/admin/migrate/new-product-model/sync-data
-CatalogIQ Docs: https://catalogiq.app/lighting-api-documentation
-
 The function is designed to synchronize products from CatalogIQ to Shopify using the new 2024-04 products API which allows a large number of variants but as of writing this only 3 options were supported.
 It is offered as an example. Your actual implementation will vary. There are no warranties or guarantees provided with this code. It is provided as an example to help you get started with your own implementation.
 The function will NOT check if the item already exists. It will create a new item each time it is called. You will need to add that logic if you want to check for existing items.
 The function adds CatalogIQ product attributes as unstructured metafields in Shopify. You can modify this to suit your needs.
-Print statements are used for debugging and can be removed or replaced with webhooks or robust logging. They are commented out for ease of use.
 """
 
 publisher = pubsub_v1.PublisherClient()
 # Add your project name and topic ID to the topic_path variable.
-topic_path = publisher.topic_path('YOUR-PROJECT-ID', 'YOUR-TOPIC-ID')  # Replace 'YOUR-PROJECT-ID' and 'YOUR-TOPIC-ID' with your project and topic ID
+topic_path = publisher.topic_path('bitnami-ttqjdimqca', 'demo-shopify-connector')
 
 def publish_offset(offset):
     # Publish the updated offset to the Pub/Sub topic.
@@ -31,7 +27,6 @@ def publish_offset(offset):
     publisher.publish(topic_path, message_bytes)
 
 # Map the CatalogIQ product to Shopify product structure
-# @Input:Dict ciq_product: The CatalogIQ product to be synced
 def map_catalogiq_to_shopify(ciq_product):
     # Assuming 'options' represent product-wide options like size, color, etc.
     product_options = []
@@ -89,11 +84,7 @@ def map_catalogiq_to_shopify(ciq_product):
             "type": "string"
                 } for attribute in ciq_product['attributes'] if ciq_product['attributes']]        
     }
-# Handles checking the status of the productSetOperation for product creation
-# Checks for COMPLETE productOperation status and returns the product ID and user errors if any
-# @Input:String operation_id: The full shopify ID of the productSetOperation eg. gid://shopify/ProductSetOperation/1704073
-# @Input:String shopify_graphql_url: The Shopify GraphQL endpoint
-# @Input:Dict headers: The Shopify headers
+
 def check_operation_status(operation_id, shopify_graphql_url, headers):
     """Poll the productSetOperation status until it is complete."""
     status_query = """
@@ -120,7 +111,7 @@ def check_operation_status(operation_id, shopify_graphql_url, headers):
         response = requests.post(graphql_url, json={'query': status_query}, headers=headers)
         status_data = response.json()
         
-        #print(f"Status data: {status_data}")
+        print(f"Status data: {status_data}")
 
         status = status_data['data']['productOperation']['status']
 
@@ -128,16 +119,13 @@ def check_operation_status(operation_id, shopify_graphql_url, headers):
             product_id = None if status_data['data']['productOperation']['product'] is None else status_data['data']['productOperation']['product'].get('id')
             user_errors = status_data['data']['productOperation']['userErrors']
             return status, product_id, user_errors            
-        time.sleep(2)  # Poll every 5 seconds , remember to adjust the timeout of the funciton if you are polling for a long time
+        time.sleep(5)  # Poll every 5 seconds    
 
 # GraphQL mutations to create a product and its images in Shopify
 # https://shopify.dev/docs/api/admin-graphql/2024-04
-# @Input:String shopify_graphql_url: The Shopify GraphQL endpoint
-# @Input:Dict shopify_headers: The Shopify headers
-# @Input:Dict ciq_product: The CatalogIQ product to be synced
 def sync_products_to_shopify(shopify_graphql_url, shopify_headers, ciq_product):
     mapped_product = map_catalogiq_to_shopify(ciq_product)
-    # print(f"Product to be synced: {mapped_product}")
+    print(f"Product to be synced: {mapped_product}")
     # https://shopify.dev/docs/api/admin-graphql/2024-04/mutations/productSet
     mutation = '''
         mutation setProduct($input: ProductSetInput!) {
@@ -165,16 +153,22 @@ def sync_products_to_shopify(shopify_graphql_url, shopify_headers, ciq_product):
     
     new_prod_response_json = response.json()
 
+    print(f"New Product Response: {new_prod_response_json}")
+
     status, product_id, user_errors = check_operation_status(new_prod_response_json['data']['productSet']['productSetOperation']['id'], shopify_graphql_url, shopify_headers)
 
-    #print(f"Errors: {user_errors}")
-    #print(f"Product ID: {product_id}")
-    #print(f"Status: {status}")
+
+    print(f"Errors: {user_errors}")
+    print(f"Product ID: {product_id}")
+    print(f"Status: {status}")
 
     try:
-        # If product creation was successful, add images to the product
-        # TODO: Add else block to handle errors and retries based in the user_errors and status
-        if product_id:            
+        if product_id:
+            # The product id is set in the mutation because synchronous is set to true
+            # May need to check for progress of productSetOperation if synchronous is set to false and you are loading a large number of records
+        
+            #product_id = prod_response_json['data']['productSet']['product']['id']
+            
             # Add main image to product
             # https://shopify.dev/docs/api/admin-graphql/2024-04/mutations/productCreateMedia
             if ciq_product['main_image']:
@@ -240,10 +234,9 @@ def sync_products_to_shopify(shopify_graphql_url, shopify_headers, ciq_product):
                     
 
                     image_response = requests.post(shopify_graphql_url, json={'query': image_addition_query, 'variables': alt_image_data}, headers=shopify_headers)
-                    response_data = image_response.json()              
-                    # Handle your image creation error logging here  
+                    response_data = image_response.json()                
                     if 'errors' in response_data:
-                        print("Error adding image:", response_data['errors']) 
+                        print("Error adding image:", response_data['errors'])
                         continue  # Continue with next image if this fails
                     if image_response.status_code != 200:
                         print("Failed to post data:", image_response.text)
@@ -264,25 +257,22 @@ def process_product(cloud_event):
 
 # Function to synchronize products from CatalogIQ to BigCommerce. 
 # If the product name and/or SKU is already present it will skip the product.
-# @Input:int offset: The offset to start the synchronization from, provided by the Pub/Sub message
 def sync_products(offset):
     limit = 1
 
     # Retrieve API keys and endpoints from environment variables
     catalogiq_api_key = os.getenv('CATALOGIQ_API_KEY')
     sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
-    shopify_store = os.getenv('SHOPIFY_STORE')
-    shopify_access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
 
     catalogiq_endpoint = "https://catalogiq.app/api/v1/products"
 
 
     # Set your authorization headers
     headers_catalogiq = {'Catalogiq-Api-Key': catalogiq_api_key}
-    shopify_graphql_url = f'https://{shopify_store}.myshopify.com/admin/api/2024-04/graphql.json'
+    shopify_graphql_url = 'https://quickstart-0d328702.myshopify.com/admin/api/2024-04/graphql.json'
     shopify_headers = {
         'Content-Type': 'application/json',
-        'X-Shopify-Access-Token':  shopify_access_token
+        'X-Shopify-Access-Token':  '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' #'def0f9a471706a089b29d544186925e7' #Api Key #'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' #Access Token
     }    
 
     # Fetch products from CatalogIQ with the offset from Pub/Sub
@@ -305,21 +295,18 @@ def sync_products(offset):
         try:  
             response_shopify = sync_products_to_shopify(shopify_graphql_url, shopify_headers, product)    
             #if response_shopify.data.productOperation.status not in ["COMPLETE"]:
-            #if response_shopify:
-                #print(f"Shopify Response: {response_shopify}")
+            if response_shopify:
+                print(f"Shopify Response: {response_shopify}")
         except Exception as e:
             print(f"An error occurred: {e}")
             continue
 
     # Update the offset in Pub/Sub to trigger the next invocation
-    publish_offset(offset + 1) 
+    publish_offset(offset + 1)  # Update the offset for the next invocation
     return "Product Complete!"
 
-# Use this for input sanitation and conversion
+
 # Add or update the sanitation of the input values from the dimensions above.
-# @Input:Union[int, str] input_value: The input value to be cleaned and converted
-# @Return:float: The cleaned and converted float value
-# @Note: This is a sample function and should be updated to match your input values
 def clean_and_convert_to_float(input_value):
     if isinstance(input_value, int):
         return float(input_value)
@@ -332,7 +319,6 @@ def clean_and_convert_to_float(input_value):
 
 # Callback at the end of the synchronization process to send an email notification
 # You can change this to handle whatever you would like to do upon completion.
-# @Input:String sendgrid_api_key: The SendGrid API key to send the email
 def send_completion_email(sendgrid_api_key):
     
     message = Mail(
@@ -344,6 +330,6 @@ def send_completion_email(sendgrid_api_key):
     try:
         sg = SendGridAPIClient(sendgrid_api_key)
         response = sg.send(message)
-        print(f"Email sent! Status code: {response.status_code}") 
+        print(f"Email sent! Status code: {response.status_code}")
     except Exception as e:
         print(f"An error sending mail occurred: {e}")
