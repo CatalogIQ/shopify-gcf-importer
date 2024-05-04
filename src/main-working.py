@@ -224,7 +224,7 @@ def sync_products(offset):
     shopify_graphql_url = 'https://quickstart-0d328702.myshopify.com/admin/api/2024-04/graphql.json'
     shopify_headers = {
         'Content-Type': 'application/json',
-        'X-Shopify-Access-Token':  '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' #'def0f9a471706a089b29d544186925e7' #Api Key #'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' #Access Token
+        'X-Shopify-Access-Token':  #Access Token goes here
     }    
 
     # Fetch products from CatalogIQ with the offset from Pub/Sub
