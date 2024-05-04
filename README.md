@@ -18,7 +18,7 @@ The process is triggered by a Pub/Sub message containing an "offset" value, whic
 
 ## Usage Notes
 - We are using the 2024-04 GraphQL API Release.
-- The function is designed to synchronize products from CatalogIQ to Shopify using the new 2024-04 products API which allows a large number of options. However at time of testing my account was limited to 100 variants per product and 3 options.
+- The function is designed to synchronize products from CatalogIQ to Shopify using the new 2024-04 products API which allows a large number of options (2000). However it is limited to 3 options.
 - It is offered as an example. Your actual implementation will vary. There are no warranties or guarantees provided with this code. It is provided as an example to help you get started with your own implementation.
 - The function will NOT check if the item already exists. It will create a new item each time it is called. You will need to add that logic if you want to check for existing items.
 - The function adds CatalogIQ product attributes as unstructured metafields in Shopify. You can modify this to suit your needs.
@@ -36,7 +36,7 @@ You can modify this function to process specific records by `template_id`, makin
 # Getting Started
 
 
-### [Video Tutorial](https://catalogiq.app/slides/connector-examples-19)
+### [Video Tutorials](https://catalogiq.app/slides/connector-examples-19) - Same as BigCommerce only using the Shopify Function
 
 View the connector example videos on [catalogiq.app courses](https://catalogiq.app/slides/connector-examples-19)
 
