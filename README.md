@@ -58,7 +58,6 @@ View the connector example videos on [catalogiq.app courses](https://catalogiq.a
 6. Set the `entry_point` to `process_product`.
 7. Set the following environment variables:
     - `CATALOGIQ_API_KEY`: Your CatalogIQ API key.
-    - `BIGCOMMERCE_API_KEY`: Your BigCommerce API key.
     - `SHOPIFY_ACCESS_TOKEN`: Your Shopify access token.
     - `SENDGRID_API_KEY`: Your SendGrid API key for sending email notifications.
     - `SHOPIFY_STORE`: Your shopify store code/domain eg `quickstart-0d328702` not `quickstart-0d328702.myshopify.com`
